@@ -1,76 +1,8 @@
-# Laboratorio 2
-# Integrantes
-# Rodrigo Zea / 17058
-# Miguel Valle / 17102
-
-# Importing useful libraries
-import bitarray
-import pickle
-import socket
-import random
-
-from numpy import random
+import socket, pickle,bitarray
 BLOCK_SIZE = 8
 MODULO = 255
-OBJECT = {'message': [], 'check1': -1, 'check2': -1, 'arr':''}
 HOST = 'localhost'
 PORT = 50007
-
-
-ba = bitarray.bitarray()
-
-""" SEND a message """
-# Enter a message
-userTxt = input("Ingrese un mensaje a enviar: ")
-# Use bitarray to convert
-ba.frombytes(userTxt.encode('utf-8'))
-
-
-"""Turn into list and prepare"""
-l = ba.tolist()
-baO = bitarray.bitarray()
-baO = ba
-temp = ['1' if x else '0' for x in l]
-mod = len(temp) % BLOCK_SIZE
-if (mod > 0):
-    byteNum = (len(temp) // BLOCK_SIZE) + 1
-else:
-    byteNum = (len(temp) // BLOCK_SIZE)
-
-"""FLETCHER CHECKSUM"""
-str1 = ""
-sum1 = 0;
-sum2 = 0;
-for i in range(byteNum):
-    temporal = temp[i*BLOCK_SIZE:(i*BLOCK_SIZE)+BLOCK_SIZE]
-    str1 = ""
-    str1 = str1.join(temporal)
-    sum1 = (sum1 + int(str1, 2)) % MODULO
-    sum2 = (sum2 + sum1) % MODULO
-check1 = MODULO - ((sum1 + sum2) % MODULO)
-check2 = MODULO - ((sum1 + check1) % MODULO)
-#OBJECT["message"] = ba
-OBJECT["check1"] = check1
-OBJECT["check2"] = check2
-print("Checksum1: ",OBJECT["check1"])
-print("Checksum2: ",OBJECT["check2"])
-
-""" ADD NOISE """
-noiseNum = "-1"
-while (noiseNum.isnumeric() == False) or (int(noiseNum) > 100):
-    try:
-        noiseNum = input("Ingrese una num. entre 0 y 100 de ruido: ")
-    except ValueError:
-        print("No es un número válido")
-        continue
-
-for i in range(len(l)):
-    x = random.randint(100)
-    if(x < 30):
-        l[i] = not(l[i])
-ba = bitarray.bitarray(l)
-l = ba.tolist()
-temp = ['1' if x else '0' for x in l]
 
 """ HAMMING CODE """
 # Implementacion de: https://www.geeksforgeeks.org/hamming-code-implementation-in-python/
@@ -148,26 +80,56 @@ def detectError(arr, nr):
   
     # Convert binary to decimal 
     return int(str(res), 2) 
-  
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((HOST, PORT))
+s.listen(1)
+conn, addr = s.accept()
+print ('Connected by', addr)
+
+data = conn.recv(4096)
+data_variable = pickle.loads(data)
+conn.close()
+print (data_variable)
+print ('Data received from client')
+ba = bitarray.bitarray()
+ba = data_variable["message"]
+l = ba.tolist()
+print(l)
+temp = ['1' if x else '0' for x in l]
+"""Verificacion FLETCHER CHECKSUM"""
+print(temp)
+print(len(temp))
+mod = len(temp) % BLOCK_SIZE
+if (mod > 0):
+    byteNum = (len(temp) // BLOCK_SIZE) + 1
+    print(temp[byteNum])
+else:
+    byteNum = (len(temp) // BLOCK_SIZE)
+str1 = ""
+sum1 = 0;
+sum2 = 0;
+for i in range(byteNum):
+    temporal = temp[i*BLOCK_SIZE:(i*BLOCK_SIZE)+BLOCK_SIZE]
+    print(temporal)
+    str1 = ""
+    str1 = str1.join(temporal)
+    sum1 = (sum1 + int(str1, 2)) % MODULO
+    sum2 = (sum2 + sum1) % MODULO
+check1 = MODULO - ((sum1 + sum2) % MODULO)
+check2 = MODULO - ((sum1 + check1) % MODULO)
+if((check1 != data_variable["check1"]) or (check2 != data_variable["check2"])):
+   print("Se detecto que hay errores con FLETCHER CHECKSUM")
+else:
+    print("No se detectaron errores con FLETCHER CHECKSUM")
+"""Verificacion Hamming Code"""
 m = len(ba)
 
 r = redBits(m)
-OBJECT["message"] = ba
-print("Bitarray original: ",baO)
-print("Bitarray enviado: ",ba)
+
 arr = posRedundantBits(temp, r)
 arr = calcParityBits(arr, r)
+correction = detectError(arr, r)
 print("Data transferida: " + arr)
 print("Error data es: " + arr)
-correction = detectError(arr, r)
 print("La posicion del error es: " + str(correction))
-data_string = pickle.dumps(OBJECT)
-""" SEND to socket """
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
-
-s.send(data_string)
-s.close()
-print ('Data sent to server')
-
-
