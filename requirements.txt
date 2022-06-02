@@ -29,7 +29,7 @@ greenlet==0.4.15
 grpcio==1.28.1
 h5py==2.10.0
 holidays==0.10.1
-html5lib==0.9999999
+html5lib==0.99999999
 idna==2.6
 ipykernel==5.1.0
 ipython==7.2.0
